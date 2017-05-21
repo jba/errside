@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -33,16 +34,23 @@ func processDir(dir string) error {
 	}
 	for _, pkg := range pkgs {
 		for filename, file := range pkg.Files {
-			if err := processFile(filename, file, fset); err != nil {
+			eis, err := processFile(filename, file, fset)
+			if err != nil {
 				return err
+			}
+			if len(eis) > 0 {
+				if err := displayFile(filename, eis); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
 }
 
-func processFile(filename string, file *ast.File, fset *token.FileSet) error {
+func processFile(filename string, file *ast.File, fset *token.FileSet) ([]*ErrInfo, error) {
 	fmt.Printf("== file %s ==\n", filename)
+	var eis []*ErrInfo
 	conf := types.Config{Importer: importer.Default()}
 	info := &types.Info{
 		Defs:  make(map[*ast.Ident]types.Object),
@@ -51,14 +59,15 @@ func processFile(filename string, file *ast.File, fset *token.FileSet) error {
 	}
 	_, err := conf.Check("floop", fset, []*ast.File{file}, info)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.BlockStmt:
 			if n != nil {
-				processBlockStmt(n, fset, info)
+				e := processBlockStmt(n, fset, info)
+				eis = append(eis, e...)
 			}
 			return false
 
@@ -66,51 +75,64 @@ func processFile(filename string, file *ast.File, fset *token.FileSet) error {
 			return true
 		}
 	})
-	return nil
+	return eis, nil
 }
 
-func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) {
-	errVars := map[types.Object]bool{}
+func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) []*ErrInfo {
+	var eis []*ErrInfo
+	lastSet := map[types.Object]*ast.Ident{}
 	for _, stmt := range bs.List {
 		switch stmt := stmt.(type) {
 		case *ast.AssignStmt:
-			if len(stmt.Rhs) > 1 {
-				fmt.Println("can't handle multiple rhs")
-				return
-			}
-			rhs := stmt.Rhs[0]
-			ty := info.Types[rhs].Type
-			lt := lastType(ty)
-			if isErrorType(lt) {
-				if id, ok := stmt.Lhs[len(stmt.Lhs)-1].(*ast.Ident); ok {
+			for _, lhs := range stmt.Lhs {
+				if id, ok := lhs.(*ast.Ident); ok {
 					def := info.Defs[id]
 					use := info.Uses[id]
-					if def == nil {
-					} else {
-						errVars[def] = true
+					if def != nil && use != nil && def != use {
+						panic("confused")
 					}
-					if use == nil {
-					} else {
-						errVars[use] = true
+					if def != nil {
+						lastSet[def] = id
+					} else if use != nil {
+						lastSet[use] = id
 					}
-
 				}
 			}
 
 		case *ast.IfStmt:
-			if onError(stmt.Cond, info.Uses, errVars) == True {
-				fmt.Printf(">>> stmt at %s\n", fset.Position(stmt.Pos()))
+			if onError(stmt.Cond, info) == True {
+				eis = append(eis, newErrInfo(fset, stmt))
 			}
 		}
 	}
+	return eis
 }
 
-func lastType(ty types.Type) types.Type {
-	if tu, ok := ty.(*types.Tuple); ok {
-		return tu.At(tu.Len() - 1).Type()
-	}
-	return ty
+type ErrInfo struct {
+	filename   string
+	start, end int
 }
+
+func (e *ErrInfo) includes(line int) bool {
+	return e.start <= line && line <= e.end
+}
+
+func newErrInfo(fset *token.FileSet, n ast.Node) *ErrInfo {
+	p1 := fset.Position(n.Pos())
+	p2 := fset.Position(n.End())
+	return &ErrInfo{
+		filename: p1.Filename,
+		start:    p1.Line,
+		end:      p2.Line,
+	}
+}
+
+// func lastType(ty types.Type) types.Type {
+// 	if tu, ok := ty.(*types.Tuple); ok {
+// 		return tu.At(tu.Len() - 1).Type()
+// 	}
+// 	return ty
+// }
 
 // isErrorType reports whether t is the built-in error type.
 func isErrorType(t types.Type) bool {
@@ -140,22 +162,22 @@ func not(t tribool) tribool {
 	return Unknown
 }
 
-func onError(expr ast.Expr, defs map[*ast.Ident]types.Object, errVars map[types.Object]bool) tribool {
+func onError(expr ast.Expr, info *types.Info) tribool {
 	switch e := expr.(type) {
 	case *ast.BinaryExpr:
 		switch e.Op {
 		case token.EQL:
-			return not(errEqualsNil(e.X, e.Y, defs, errVars))
+			return not(errEqualsNil(e.X, e.Y, info))
 		case token.NEQ:
-			return errEqualsNil(e.X, e.Y, defs, errVars)
+			return errEqualsNil(e.X, e.Y, info)
 		default:
 			return Unknown
 		}
 	case *ast.ParenExpr:
-		return onError(e.X, defs, errVars)
+		return onError(e.X, info)
 	case *ast.UnaryExpr:
 		if e.Op == token.NOT {
-			return not(onError(e.X, defs, errVars))
+			return not(onError(e.X, info))
 		}
 		return Unknown
 
@@ -164,19 +186,51 @@ func onError(expr ast.Expr, defs map[*ast.Ident]types.Object, errVars map[types.
 	}
 }
 
-func errEqualsNil(e1, e2 ast.Expr, defs map[*ast.Ident]types.Object, errVars map[types.Object]bool) tribool {
-	id1, ok1 := e1.(*ast.Ident)
-	id2, ok2 := e2.(*ast.Ident)
-	if !ok1 || !ok2 {
-		return Unknown
-	}
-	obj1 := defs[id1]
-	obj2 := defs[id2]
-	if errVars[obj1] && id2.Name == "nil" {
+func errEqualsNil(e1, e2 ast.Expr, info *types.Info) tribool {
+	t1 := info.TypeOf(e1)
+	t2 := info.TypeOf(e2)
+	if isErrorType(t1) && isNil(t2) {
 		return True
 	}
-	if errVars[obj2] && id1.Name == "nil" {
+	if isErrorType(t2) && isNil(t1) {
 		return True
 	}
 	return False
+}
+
+func isNil(t types.Type) bool {
+	if b, ok := t.(*types.Basic); ok {
+		if b.Kind() == types.UntypedNil {
+			return true
+		}
+	}
+	return false
+}
+
+func includesLine(eis []*ErrInfo, line int) bool {
+	for _, e := range eis {
+		if e.includes(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func displayFile(filename string, eis []*ErrInfo) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	n := 0
+	for s.Scan() {
+		n++
+		line := s.Text()
+		if includesLine(eis, n) {
+			fmt.Printf("\t\t\t")
+		}
+		fmt.Println(line)
+	}
+	return nil
 }
