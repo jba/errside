@@ -17,7 +17,7 @@ func main() {
 	ok := true
 	for _, dir := range flag.Args() {
 		if err := processDir(dir); err != nil {
-			fmt.Printf("%s: %v", dir, err)
+			fmt.Printf("%s: %v\n", dir, err)
 			ok = false
 		}
 	}
@@ -33,8 +33,22 @@ func processDir(dir string) error {
 		return err
 	}
 	for _, pkg := range pkgs {
+		var files []*ast.File
+		for _, file := range pkg.Files {
+			files = append(files, file)
+		}
+		info := &types.Info{
+			Defs:  make(map[*ast.Ident]types.Object),
+			Uses:  make(map[*ast.Ident]types.Object),
+			Types: make(map[ast.Expr]types.TypeAndValue),
+		}
+		conf := types.Config{Importer: importer.Default()}
+		_, err := conf.Check("floop", fset, files, info)
+		if err != nil {
+			return err
+		}
 		for filename, file := range pkg.Files {
-			eis, err := processFile(filename, file, fset)
+			eis, err := processFile(filename, file, fset, info)
 			if err != nil {
 				return err
 			}
@@ -48,19 +62,9 @@ func processDir(dir string) error {
 	return nil
 }
 
-func processFile(filename string, file *ast.File, fset *token.FileSet) ([]*ErrInfo, error) {
+func processFile(filename string, file *ast.File, fset *token.FileSet, info *types.Info) ([]*ErrInfo, error) {
 	fmt.Printf("== file %s ==\n", filename)
 	var eis []*ErrInfo
-	conf := types.Config{Importer: importer.Default()}
-	info := &types.Info{
-		Defs:  make(map[*ast.Ident]types.Object),
-		Uses:  make(map[*ast.Ident]types.Object),
-		Types: make(map[ast.Expr]types.TypeAndValue),
-	}
-	_, err := conf.Check("floop", fset, []*ast.File{file}, info)
-	if err != nil {
-		return nil, err
-	}
 
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
