@@ -84,7 +84,7 @@ func processFile(filename string, file *ast.File, fset *token.FileSet, info *typ
 
 func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) []*ErrInfo {
 	var eis []*ErrInfo
-	lastSet := map[types.Object]*ast.Ident{}
+	lastSet := map[types.Object]ast.Stmt{}
 	for _, stmt := range bs.List {
 		switch stmt := stmt.(type) {
 		case *ast.AssignStmt:
@@ -96,16 +96,17 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 						panic("confused")
 					}
 					if def != nil {
-						lastSet[def] = id
+						lastSet[def] = stmt
 					} else if use != nil {
-						lastSet[use] = id
+						lastSet[use] = stmt
 					}
 				}
 			}
 
 		case *ast.IfStmt:
-			if onError(stmt.Cond, info) == True {
-				eis = append(eis, newErrInfo(fset, stmt))
+			obj, tb := onError(stmt.Cond, info)
+			if tb == True {
+				eis = append(eis, newErrInfo(fset, stmt, obj))
 			}
 		}
 	}
@@ -113,6 +114,7 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 }
 
 type ErrInfo struct {
+	errVar     types.Object
 	filename   string
 	start, end int
 }
@@ -121,10 +123,11 @@ func (e *ErrInfo) includes(line int) bool {
 	return e.start <= line && line <= e.end
 }
 
-func newErrInfo(fset *token.FileSet, n ast.Node) *ErrInfo {
+func newErrInfo(fset *token.FileSet, n ast.Node, obj types.Object) *ErrInfo {
 	p1 := fset.Position(n.Pos())
 	p2 := fset.Position(n.End())
 	return &ErrInfo{
+		errVar:   obj,
 		filename: p1.Filename,
 		start:    p1.Line,
 		end:      p2.Line,
@@ -166,40 +169,48 @@ func not(t tribool) tribool {
 	return Unknown
 }
 
-func onError(expr ast.Expr, info *types.Info) tribool {
+func onError(expr ast.Expr, info *types.Info) (types.Object, tribool) {
 	switch e := expr.(type) {
 	case *ast.BinaryExpr:
 		switch e.Op {
 		case token.EQL:
-			return not(errEqualsNil(e.X, e.Y, info))
+			obj, t := errEqualsNil(e.X, e.Y, info)
+			return obj, not(t)
 		case token.NEQ:
 			return errEqualsNil(e.X, e.Y, info)
 		default:
-			return Unknown
+			return nil, Unknown
 		}
 	case *ast.ParenExpr:
 		return onError(e.X, info)
 	case *ast.UnaryExpr:
 		if e.Op == token.NOT {
-			return not(onError(e.X, info))
+			obj, t := onError(e.X, info)
+			return obj, not(t)
 		}
-		return Unknown
+		return nil, Unknown
 
 	default:
-		return Unknown
+		return nil, Unknown
 	}
 }
 
-func errEqualsNil(e1, e2 ast.Expr, info *types.Info) tribool {
+func errEqualsNil(e1, e2 ast.Expr, info *types.Info) (types.Object, tribool) {
 	t1 := info.TypeOf(e1)
 	t2 := info.TypeOf(e2)
+	var errExpr ast.Expr
 	if isErrorType(t1) && isNil(t2) {
-		return True
+		errExpr = e1
+	} else if isErrorType(t2) && isNil(t1) {
+		errExpr = e2
 	}
-	if isErrorType(t2) && isNil(t1) {
-		return True
+	if errExpr == nil {
+		return nil, False
 	}
-	return False
+	if id, ok := errExpr.(*ast.Ident); ok {
+		return info.ObjectOf(id), True
+	}
+	return nil, False
 }
 
 func isNil(t types.Type) bool {
@@ -236,5 +247,5 @@ func displayFile(filename string, eis []*ErrInfo) error {
 		}
 		fmt.Println(line)
 	}
-	return nil
+	return s.Err()
 }

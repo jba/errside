@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 )
 
@@ -12,7 +14,6 @@ func Display(fname string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	bytes, err := ioutil.ReadAll(f)
 	if err == io.EOF {
 		fmt.Println("EOF")
@@ -20,13 +21,32 @@ func Display(fname string) error {
 	if !(err == nil) {
 		return fmt.Errorf("reading %q: %v", fname, err)
 	}
-
-	a, b := pair(fname)
-	fmt.Println(a, b)
+	if err := f.Close(); err != nil {
+		return err
+	}
 	fmt.Println(string(bytes))
 	return nil
 }
 
-func pair(s string) (int, int) {
-	return 3, 5
+func slurpURL(urlStr string) []byte {
+	if *useCache {
+		log.Fatalf("Invalid use of slurpURL in cached mode for URL %s", urlStr)
+	}
+
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *publicOnly {
+		req.Header.Add("X-User-IP", "0.0.0.0") // hack
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Error fetching URL %s: %v", urlStr, err)
+	}
+	bs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalf("Error reading body of URL %s: %v", urlStr, err)
+	}
+	return bs
 }
