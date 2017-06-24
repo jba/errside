@@ -9,6 +9,11 @@ import (
 	"os"
 )
 
+var (
+	useCache   *bool
+	publicOnly *bool
+)
+
 func Display(fname string) error {
 	f, err := os.Open(fname)
 	if err != nil {

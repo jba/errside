@@ -113,8 +113,10 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 	return eis
 }
 
+// ErrInfo records sequence of lines that will be executed
+// if an error occurs.
 type ErrInfo struct {
-	errVar     types.Object
+	errVar     types.Object // the error variable != nil
 	filename   string
 	start, end int
 }
@@ -141,34 +143,14 @@ func newErrInfo(fset *token.FileSet, n ast.Node, obj types.Object) *ErrInfo {
 // 	return ty
 // }
 
-// isErrorType reports whether t is the built-in error type.
-func isErrorType(t types.Type) bool {
-	nt, ok := t.(*types.Named)
-	if !ok {
-		return false
-	}
-	tn := nt.Obj()
-	return tn.Pkg() == nil && tn.Name() == "error"
-}
-
-type tribool int
-
-const (
-	Unknown tribool = iota
-	False
-	True
-)
-
-func not(t tribool) tribool {
-	switch t {
-	case False:
-		return True
-	case True:
-		return False
-	}
-	return Unknown
-}
-
+// onError reports whether expr is an inequality check between nil and
+// an identifier of type error. It also returns the Object associated
+// with the identifier.
+// Examples:
+//     err != nil
+//     !(err == nil)
+//	   nil != err
+//     ((err != nil))
 func onError(expr ast.Expr, info *types.Info) (types.Object, tribool) {
 	switch e := expr.(type) {
 	case *ast.BinaryExpr:
@@ -195,6 +177,8 @@ func onError(expr ast.Expr, info *types.Info) (types.Object, tribool) {
 	}
 }
 
+// errEqualsNil reports whether the two exprs are an identifier of type error and
+// nil. It returns the types.Object associated with the identifier.
 func errEqualsNil(e1, e2 ast.Expr, info *types.Info) (types.Object, tribool) {
 	t1 := info.TypeOf(e1)
 	t2 := info.TypeOf(e2)
@@ -213,6 +197,7 @@ func errEqualsNil(e1, e2 ast.Expr, info *types.Info) (types.Object, tribool) {
 	return nil, False
 }
 
+// isNil reports whether type t the "untyped nil" type
 func isNil(t types.Type) bool {
 	if b, ok := t.(*types.Basic); ok {
 		if b.Kind() == types.UntypedNil {
@@ -220,6 +205,16 @@ func isNil(t types.Type) bool {
 		}
 	}
 	return false
+}
+
+// isErrorType reports whether t is the built-in error type.
+func isErrorType(t types.Type) bool {
+	nt, ok := t.(*types.Named)
+	if !ok {
+		return false
+	}
+	tn := nt.Obj()
+	return tn.Pkg() == nil && tn.Name() == "error"
 }
 
 func includesLine(eis []*ErrInfo, line int) bool {
@@ -248,4 +243,22 @@ func displayFile(filename string, eis []*ErrInfo) error {
 		fmt.Println(line)
 	}
 	return s.Err()
+}
+
+type tribool int
+
+const (
+	Unknown tribool = iota
+	False
+	True
+)
+
+func not(t tribool) tribool {
+	switch t {
+	case False:
+		return True
+	case True:
+		return False
+	}
+	return Unknown
 }
