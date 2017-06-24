@@ -10,7 +10,9 @@ package printer
 
 import (
 	"bytes"
-	"go/ast"
+
+	"github.com/jba/errside/ast"
+
 	"go/token"
 	"strconv"
 	"strings"

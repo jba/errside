@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go/ast"
-	"go/importer"
-	"go/parser"
 	"go/token"
-	"go/types"
+
 	"os"
 
-	"github.com/jba/errside/printer"
+	"github.com/jba/errside/ast"
+	"github.com/jba/errside/errstmt"
+	"github.com/jba/errside/importer"
+	"github.com/jba/errside/parser"
+	"github.com/jba/errside/types"
 )
 
 func main() {
@@ -49,31 +50,24 @@ func processDir(dir string) error {
 			return err
 		}
 		for filename, file := range pkg.Files {
-			eis, err := processFile(filename, file, fset, info)
+			err := processFile(filename, file, fset, info)
 			if err != nil {
 				return err
 			}
-			if len(eis) > 0 {
-				for _, ei := range eis {
-					printer.Fprint(os.Stdout, fset, ei.aStmt)
-					printer.Fprint(os.Stdout, fset, ei.ifStmt)
-				}
-			}
+			fmt.Println("done with", filename)
 		}
 	}
 	return nil
 }
 
-func processFile(filename string, file *ast.File, fset *token.FileSet, info *types.Info) ([]*ErrInfo, error) {
+func processFile(filename string, file *ast.File, fset *token.FileSet, info *types.Info) error {
 	fmt.Printf("== file %s ==\n", filename)
-	var eis []*ErrInfo
 
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.BlockStmt:
 			if n != nil {
-				e := processBlockStmt(n, fset, info)
-				eis = append(eis, e...)
+				processBlockStmt(n, fset, info)
 			}
 			return false
 
@@ -81,12 +75,13 @@ func processFile(filename string, file *ast.File, fset *token.FileSet, info *typ
 			return true
 		}
 	})
-	return eis, nil
+	return nil
 }
 
-func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) []*ErrInfo {
-	var eis []*ErrInfo
+func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) {
+	var newList []ast.Stmt
 	for i, stmt := range bs.List {
+		newList = append(newList, stmt)
 		ifStmt, ok := stmt.(*ast.IfStmt)
 		if !ok {
 			continue
@@ -117,9 +112,13 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 		//    ..., err := ..
 		//    if err != nil { ... }
 
-		eis = append(eis, &ErrInfo{aStmt: aStmt, ifStmt: ifStmt, errVar: obj})
+		// The last two elements of newList are the assignment and if statements.
+		// Replace both with a new "statement".
+		n := len(newList)
+		newList[n-1] = &errstmt.AssignIfErrStmt{}
+		newList = newList[:n-1]
 	}
-	return eis
+	bs.List = newList
 }
 
 // lastObj returns the types.Object for the last expression in exprs, if
@@ -134,24 +133,6 @@ func lastObj(exprs []ast.Expr, info *types.Info) types.Object {
 	}
 	return info.ObjectOf(id)
 }
-
-// ErrInfo records (assignment, if) pairs where the if tests for
-// the error set by the assignment.
-type ErrInfo struct {
-	aStmt, ifStmt ast.Stmt
-	errVar        types.Object // the error variable != nil
-}
-
-// func newErrInfo(fset *token.FileSet, n ast.Node, obj types.Object) *ErrInfo {
-// 	p1 := fset.Position(n.Pos())
-// 	p2 := fset.Position(n.End())
-// 	return &ErrInfo{
-// 		errVar:   obj,
-// 		filename: p1.Filename,
-// 		start:    p1.Line,
-// 		end:      p2.Line,
-// 	}
-// }
 
 // onError reports whether expr is an inequality check between nil and
 // an identifier of type error. It also returns the Object associated

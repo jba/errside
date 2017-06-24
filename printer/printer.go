@@ -7,7 +7,6 @@ package printer
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"io"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"text/tabwriter"
 	"unicode"
+
+	"github.com/jba/errside/ast"
 )
 
 const (
