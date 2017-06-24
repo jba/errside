@@ -10,8 +10,10 @@ package printer
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/jba/errside/ast"
+	"github.com/jba/errside/errstmt"
 
 	"go/token"
 	"strconv"
@@ -1093,6 +1095,9 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	p.print(stmt.Pos())
 
 	switch s := stmt.(type) {
+	case *errstmt.AssignIfErrStmt:
+		fmt.Println("#### Saw it")
+
 	case *ast.BadStmt:
 		p.print("BadStmt")
 
@@ -1268,7 +1273,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.block(s.Body, 1)
 
 	default:
-		panic("unreachable")
+		panic("unreachable: " + fmt.Sprintf("%T", stmt))
 	}
 
 	return

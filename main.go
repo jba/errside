@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/jba/errside/ast"
-	"github.com/jba/errside/errstmt"
 	"github.com/jba/errside/importer"
 	"github.com/jba/errside/parser"
+	"github.com/jba/errside/printer"
 	"github.com/jba/errside/types"
 )
 
@@ -54,7 +54,9 @@ func processDir(dir string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println("done with", filename)
+			if err := printer.Fprint(os.Stdout, fset, file); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -114,9 +116,9 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 
 		// The last two elements of newList are the assignment and if statements.
 		// Replace both with a new "statement".
-		n := len(newList)
-		newList[n-1] = &errstmt.AssignIfErrStmt{}
-		newList = newList[:n-1]
+		// n := len(newList)
+		// newList[n-1] = &errstmt.AssignIfErrStmt{}
+		// newList = newList[:n-1]
 	}
 	bs.List = newList
 }
