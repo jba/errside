@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -10,6 +9,8 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+
+	"github.com/jba/errside/printer"
 )
 
 func main() {
@@ -53,8 +54,9 @@ func processDir(dir string) error {
 				return err
 			}
 			if len(eis) > 0 {
-				if err := displayFile(filename, eis); err != nil {
-					return err
+				for _, ei := range eis {
+					printer.Fprint(os.Stdout, fset, ei.aStmt)
+					printer.Fprint(os.Stdout, fset, ei.ifStmt)
 				}
 			}
 		}
@@ -84,63 +86,71 @@ func processFile(filename string, file *ast.File, fset *token.FileSet, info *typ
 
 func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) []*ErrInfo {
 	var eis []*ErrInfo
-	lastSet := map[types.Object]ast.Stmt{}
-	for _, stmt := range bs.List {
-		switch stmt := stmt.(type) {
-		case *ast.AssignStmt:
-			for _, lhs := range stmt.Lhs {
-				if id, ok := lhs.(*ast.Ident); ok {
-					def := info.Defs[id]
-					use := info.Uses[id]
-					if def != nil && use != nil && def != use {
-						panic("confused")
-					}
-					if def != nil {
-						lastSet[def] = stmt
-					} else if use != nil {
-						lastSet[use] = stmt
-					}
-				}
-			}
-
-		case *ast.IfStmt:
-			obj, tb := onError(stmt.Cond, info)
-			if tb == True {
-				eis = append(eis, newErrInfo(fset, stmt, obj))
-			}
+	for i, stmt := range bs.List {
+		ifStmt, ok := stmt.(*ast.IfStmt)
+		if !ok {
+			continue
 		}
+		// We have an if statement.
+		// Does the if's test compare an identifier to nil?
+		obj, tb := onError(ifStmt.Cond, info)
+		if tb != True {
+			continue
+		}
+		// Yes it does.
+		// Was the previous statement an assignment?
+		if i == 0 {
+			continue
+		}
+		aStmt, ok := bs.List[i-1].(*ast.AssignStmt)
+		if !ok {
+			continue
+		}
+		// Yes it was.
+		// Was the last expr on the lhs of the assignment the same identifier
+		// tested in the if statement?
+		obj2 := lastObj(aStmt.Lhs, info)
+		if obj != obj2 {
+			continue
+		}
+		// Yes it was. We have something like
+		//    ..., err := ..
+		//    if err != nil { ... }
+
+		eis = append(eis, &ErrInfo{aStmt: aStmt, ifStmt: ifStmt, errVar: obj})
 	}
 	return eis
 }
 
-// ErrInfo records sequence of lines that will be executed
-// if an error occurs.
-type ErrInfo struct {
-	errVar     types.Object // the error variable != nil
-	filename   string
-	start, end int
-}
-
-func (e *ErrInfo) includes(line int) bool {
-	return e.start <= line && line <= e.end
-}
-
-func newErrInfo(fset *token.FileSet, n ast.Node, obj types.Object) *ErrInfo {
-	p1 := fset.Position(n.Pos())
-	p2 := fset.Position(n.End())
-	return &ErrInfo{
-		errVar:   obj,
-		filename: p1.Filename,
-		start:    p1.Line,
-		end:      p2.Line,
+// lastObj returns the types.Object for the last expression in exprs, if
+// it is an identifer. Otherwise it returns nil.
+func lastObj(exprs []ast.Expr, info *types.Info) types.Object {
+	if len(exprs) == 0 {
+		return nil
 	}
+	id, ok := exprs[len(exprs)-1].(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	return info.ObjectOf(id)
 }
 
-// func lastType(ty types.Type) types.Type {
-// 	if tu, ok := ty.(*types.Tuple); ok {
-// 		return tu.At(tu.Len() - 1).Type()
+// ErrInfo records (assignment, if) pairs where the if tests for
+// the error set by the assignment.
+type ErrInfo struct {
+	aStmt, ifStmt ast.Stmt
+	errVar        types.Object // the error variable != nil
+}
+
+// func newErrInfo(fset *token.FileSet, n ast.Node, obj types.Object) *ErrInfo {
+// 	p1 := fset.Position(n.Pos())
+// 	p2 := fset.Position(n.End())
+// 	return &ErrInfo{
+// 		errVar:   obj,
+// 		filename: p1.Filename,
+// 		start:    p1.Line,
+// 		end:      p2.Line,
 // 	}
-// 	return ty
 // }
 
 // onError reports whether expr is an inequality check between nil and
@@ -215,34 +225,6 @@ func isErrorType(t types.Type) bool {
 	}
 	tn := nt.Obj()
 	return tn.Pkg() == nil && tn.Name() == "error"
-}
-
-func includesLine(eis []*ErrInfo, line int) bool {
-	for _, e := range eis {
-		if e.includes(line) {
-			return true
-		}
-	}
-	return false
-}
-
-func displayFile(filename string, eis []*ErrInfo) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-	n := 0
-	for s.Scan() {
-		n++
-		line := s.Text()
-		if includesLine(eis, n) {
-			fmt.Printf("\t\t\t")
-		}
-		fmt.Println(line)
-	}
-	return s.Err()
 }
 
 type tribool int
