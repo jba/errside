@@ -1096,7 +1096,9 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 
 	switch s := stmt.(type) {
 	case *errstmt.AssignIfErrStmt:
-		fmt.Println("#### Saw it")
+		p.stmt(s.AssignStmt, false)
+		p.print(token.SEMICOLON, blank, indent)
+		p.stmt(s.IfStmt, false)
 
 	case *ast.BadStmt:
 		p.print("BadStmt")

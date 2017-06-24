@@ -46,6 +46,7 @@ type Expr interface {
 // All statement nodes implement the Stmt interface.
 type Stmt interface {
 	Node
+	StmtNode()
 }
 
 // All declaration nodes implement the Decl interface.
@@ -785,30 +786,30 @@ func (s *SelectStmt) End() token.Pos { return s.Body.End() }
 func (s *ForStmt) End() token.Pos    { return s.Body.End() }
 func (s *RangeStmt) End() token.Pos  { return s.Body.End() }
 
-// stmtNode() ensures that only statement nodes can be
+// StmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
 //
-func (*BadStmt) stmtNode()        {}
-func (*DeclStmt) stmtNode()       {}
-func (*EmptyStmt) stmtNode()      {}
-func (*LabeledStmt) stmtNode()    {}
-func (*ExprStmt) stmtNode()       {}
-func (*SendStmt) stmtNode()       {}
-func (*IncDecStmt) stmtNode()     {}
-func (*AssignStmt) stmtNode()     {}
-func (*GoStmt) stmtNode()         {}
-func (*DeferStmt) stmtNode()      {}
-func (*ReturnStmt) stmtNode()     {}
-func (*BranchStmt) stmtNode()     {}
-func (*BlockStmt) stmtNode()      {}
-func (*IfStmt) stmtNode()         {}
-func (*CaseClause) stmtNode()     {}
-func (*SwitchStmt) stmtNode()     {}
-func (*TypeSwitchStmt) stmtNode() {}
-func (*CommClause) stmtNode()     {}
-func (*SelectStmt) stmtNode()     {}
-func (*ForStmt) stmtNode()        {}
-func (*RangeStmt) stmtNode()      {}
+func (*BadStmt) StmtNode()        {}
+func (*DeclStmt) StmtNode()       {}
+func (*EmptyStmt) StmtNode()      {}
+func (*LabeledStmt) StmtNode()    {}
+func (*ExprStmt) StmtNode()       {}
+func (*SendStmt) StmtNode()       {}
+func (*IncDecStmt) StmtNode()     {}
+func (*AssignStmt) StmtNode()     {}
+func (*GoStmt) StmtNode()         {}
+func (*DeferStmt) StmtNode()      {}
+func (*ReturnStmt) StmtNode()     {}
+func (*BranchStmt) StmtNode()     {}
+func (*BlockStmt) StmtNode()      {}
+func (*IfStmt) StmtNode()         {}
+func (*CaseClause) StmtNode()     {}
+func (*SwitchStmt) StmtNode()     {}
+func (*TypeSwitchStmt) StmtNode() {}
+func (*CommClause) StmtNode()     {}
+func (*SelectStmt) StmtNode()     {}
+func (*ForStmt) StmtNode()        {}
+func (*RangeStmt) StmtNode()      {}
 
 // ----------------------------------------------------------------------------
 // Declarations

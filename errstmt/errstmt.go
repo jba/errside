@@ -8,10 +8,11 @@ import (
 )
 
 type AssignIfErrStmt struct {
-	assignStmt ast.Stmt
-	ifStmt     ast.Stmt
-	errVar     types.Object // the error variable != nil
+	AssignStmt ast.Stmt
+	IfStmt     ast.Stmt
+	ErrVar     types.Object // the error variable != nil
 }
 
-func (a *AssignIfErrStmt) Pos() token.Pos { return a.assignStmt.Pos() }
-func (a *AssignIfErrStmt) End() token.Pos { return a.ifStmt.End() }
+func (a *AssignIfErrStmt) Pos() token.Pos { return a.AssignStmt.Pos() }
+func (a *AssignIfErrStmt) End() token.Pos { return a.IfStmt.End() }
+func (*AssignIfErrStmt) StmtNode()        {}

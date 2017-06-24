@@ -1039,7 +1039,6 @@ func getDoc(n ast.Node) *ast.CommentGroup {
 }
 
 func (p *printer) printNode(node interface{}) error {
-	fmt.Printf("#### printNode %T\n", node)
 	// unpack *CommentedNode, if any
 	var comments []*ast.CommentGroup
 	if cnode, ok := node.(*CommentedNode); ok {
@@ -1113,7 +1112,6 @@ func (p *printer) printNode(node interface{}) error {
 	case []ast.Decl:
 		p.declList(n)
 	case *ast.File:
-		fmt.Println("#### FILE")
 		p.file(n)
 	default:
 		goto unsupported

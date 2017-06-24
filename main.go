@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jba/errside/ast"
+	"github.com/jba/errside/errstmt"
 	"github.com/jba/errside/importer"
 	"github.com/jba/errside/parser"
 	"github.com/jba/errside/printer"
@@ -116,9 +117,13 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 
 		// The last two elements of newList are the assignment and if statements.
 		// Replace both with a new "statement".
-		// n := len(newList)
-		// newList[n-1] = &errstmt.AssignIfErrStmt{}
-		// newList = newList[:n-1]
+		n := len(newList)
+		newList[n-2] = &errstmt.AssignIfErrStmt{
+			AssignStmt: aStmt,
+			IfStmt:     ifStmt,
+			ErrVar:     obj,
+		}
+		newList = newList[:n-1]
 	}
 	bs.List = newList
 }
