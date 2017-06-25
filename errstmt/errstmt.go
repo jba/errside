@@ -4,7 +4,6 @@ import (
 	"go/token"
 
 	"github.com/jba/errside/ast"
-	"github.com/jba/errside/types"
 )
 
 type AssignIfErrStmt struct {
@@ -14,7 +13,7 @@ type AssignIfErrStmt struct {
 	IsShort   bool       // short assignment?
 }
 
-func NewAssignIfErrStmt(aStmt *ast.AssignStmt, iStmt *ast.IfStmt, evar types.Object) *AssignIfErrStmt {
+func NewAssignIfErrStmt(aStmt *ast.AssignStmt, iStmt *ast.IfStmt) *AssignIfErrStmt {
 	llen := len(aStmt.Lhs)
 	a := &AssignIfErrStmt{
 		IfStmt:  iStmt,

@@ -128,7 +128,7 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 		n := len(newList)
 		// Make a new pseudo-statement that includes both the assignment
 		// and the test.
-		newStmt := errstmt.NewAssignIfErrStmt(aStmt, ifStmt, obj)
+		newStmt := errstmt.NewAssignIfErrStmt(aStmt, ifStmt)
 		if ifStmt.Init != nil {
 			ifStmt.Init = nil
 			newList[n-1] = newStmt
