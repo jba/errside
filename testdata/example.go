@@ -2,7 +2,6 @@ package example
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,15 +13,33 @@ var (
 	publicOnly *bool
 )
 
+func WriteFile(fname string) error {
+	f, err := os.Create(fname)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write([]byte{1})
+	if err != nil {
+		return err
+	}
+	_, err = f.Write([]byte{8, 17, 33})
+	if err != nil {
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	fmt.Println("wrote", fname)
+	return nil
+}
+
 func Display(fname string) error {
 	f, err := os.Open(fname)
 	if err != nil {
 		return err
 	}
 	bytes, err := ioutil.ReadAll(f)
-	if err == io.EOF {
-		fmt.Println("EOF")
-	}
 	if !(err == nil) {
 		return fmt.Errorf("reading %q: %v", fname, err)
 	}

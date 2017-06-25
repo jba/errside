@@ -55,7 +55,11 @@ func processDir(dir string) error {
 			if err != nil {
 				return err
 			}
-			if err := printer.Fprint(os.Stdout, fset, file); err != nil {
+			conf := &printer.Config{
+				Mode:     printer.UseSpaces,
+				Tabwidth: 4,
+			}
+			if err := conf.Fprint(os.Stdout, fset, file); err != nil {
 				return err
 			}
 		}
@@ -118,11 +122,7 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 		// The last two elements of newList are the assignment and if statements.
 		// Replace both with a new "statement".
 		n := len(newList)
-		newList[n-2] = &errstmt.AssignIfErrStmt{
-			AssignStmt: aStmt,
-			IfStmt:     ifStmt,
-			ErrVar:     obj,
-		}
+		newList[n-2] = errstmt.NewAssignIfErrStmt(aStmt, ifStmt, obj)
 		newList = newList[:n-1]
 	}
 	bs.List = newList

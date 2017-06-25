@@ -1096,9 +1096,24 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 
 	switch s := stmt.(type) {
 	case *errstmt.AssignIfErrStmt:
-		p.stmt(s.AssignStmt, false)
-		p.print(token.SEMICOLON, blank, indent)
-		p.stmt(s.IfStmt, false)
+		p.stmt(s.FirstStmt, false)
+		//p.print(indent, indent, indent)
+		for p.out.Column < 40 {
+			p.writeByte(' ', 1)
+		}
+		p.print(whiteSpace('='), whiteSpace(':'), blank)
+		p.print(s.ErrVar, token.SEMICOLON, blank)
+		sif := s.IfStmt
+		if len(sif.Body.List) == 1 && sif.Else == nil {
+			p.print(token.IF)
+			p.controlClause(false, sif.Init, sif.Cond, nil)
+			p.print(sif.Body.Lbrace, token.LBRACE, blank)
+			p.stmt(sif.Body.List[0], true)
+			p.print(blank, sif.Body.Rbrace, token.RBRACE)
+		} else {
+			p.stmt(sif, false)
+		}
+		//p.print(unindent, unindent, unindent)
 
 	case *ast.BadStmt:
 		p.print("BadStmt")
