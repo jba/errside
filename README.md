@@ -10,3 +10,12 @@ away, but you can easily ignore it if you want to.
 
 This package displays Go error-handling on the right side of the screen.
 
+Note: the following packages were copied from the go/ subtree of the standard
+library:
+- ast
+- importer
+- internal/*
+- parser
+- printer
+- types
+
