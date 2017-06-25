@@ -1100,8 +1100,11 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		for p.out.Column < p.Config.Errcol {
 			p.writeByte(' ', 1)
 		}
-		p.print(whiteSpace('='), whiteSpace(':'), blank)
-		p.print(s.ErrVar, token.SEMICOLON, blank)
+		p.print(token.ASSIGN)
+		if s.IsShort {
+			p.print(token.COLON)
+		}
+		p.print(blank, s.ErrVar, token.SEMICOLON, blank)
 		sif := s.IfStmt
 		if len(sif.Body.List) == 1 && sif.Else == nil {
 			p.print(token.IF)

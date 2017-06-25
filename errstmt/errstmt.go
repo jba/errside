@@ -11,13 +11,15 @@ type AssignIfErrStmt struct {
 	FirstStmt ast.Stmt
 	IfStmt    *ast.IfStmt
 	ErrVar    *ast.Ident // the error variable != nil
+	IsShort   bool       // short assignment?
 }
 
 func NewAssignIfErrStmt(aStmt *ast.AssignStmt, iStmt *ast.IfStmt, evar types.Object) *AssignIfErrStmt {
 	llen := len(aStmt.Lhs)
 	a := &AssignIfErrStmt{
-		IfStmt: iStmt,
-		ErrVar: aStmt.Lhs[llen-1].(*ast.Ident),
+		IfStmt:  iStmt,
+		ErrVar:  aStmt.Lhs[llen-1].(*ast.Ident),
+		IsShort: aStmt.Tok == token.DEFINE,
 	}
 	if len(aStmt.Lhs) > 1 {
 		aStmt.Lhs = aStmt.Lhs[:llen-1]
