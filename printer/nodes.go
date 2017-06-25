@@ -1106,14 +1106,14 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		}
 		p.print(blank, s.ErrVar, token.SEMICOLON, blank)
 		sif := s.IfStmt
-		if len(sif.Body.List) == 1 && sif.Else == nil {
+		maxSize := 70 - p.Config.Errcol
+		if len(sif.Body.List) == 1 && p.nodeSize(sif.Body.List[0], maxSize) <= maxSize && sif.Else == nil {
 			p.print(token.IF)
 			p.controlClause(false, sif.Init, sif.Cond, nil)
 			p.print(sif.Body.Lbrace, token.LBRACE, blank)
 			p.stmt(sif.Body.List[0], true)
 			p.print(blank, sif.Body.Rbrace, token.RBRACE)
 		} else {
-			fmt.Printf("errcol=%d, tabw=%d\n", p.Config.Errcol, p.Config.Tabwidth)
 			nindent := p.Config.Errcol / p.Config.Tabwidth
 			for i := 0; i < nindent; i++ {
 				p.print(indent)

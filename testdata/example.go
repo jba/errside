@@ -8,16 +8,6 @@ import (
 	"os"
 )
 
-func twolines(fname string) error {
-	f, err := os.Open(fname)
-	if err != nil {
-		log.Print("got error", err)
-		return err
-	}
-	_ = f
-	return nil
-}
-
 func WriteFile(fname string) error {
 	f, err := os.Create(fname)
 	if err != nil {
@@ -52,6 +42,16 @@ func Display(fname string) error {
 		return err
 	}
 	fmt.Println(string(bytes))
+	return nil
+}
+
+func twolines(fname string) error {
+	f, err := os.Open(fname)
+	if err != nil {
+		log.Print("got error", err)
+		return err
+	}
+	_ = f
 	return nil
 }
 
