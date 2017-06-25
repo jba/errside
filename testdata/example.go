@@ -8,10 +8,15 @@ import (
 	"os"
 )
 
-var (
-	useCache   *bool
-	publicOnly *bool
-)
+func twolines(fname string) error {
+	f, err := os.Open(fname)
+	if err != nil {
+		log.Print("got error", err)
+		return err
+	}
+	_ = f
+	return nil
+}
 
 func WriteFile(fname string) error {
 	f, err := os.Create(fname)
@@ -50,8 +55,10 @@ func Display(fname string) error {
 	return nil
 }
 
+var useCache bool
+
 func slurpURL(urlStr string) []byte {
-	if *useCache {
+	if useCache {
 		log.Fatalf("Invalid use of slurpURL in cached mode for URL %s", urlStr)
 	}
 	req, err := http.NewRequest("GET", urlStr, nil)

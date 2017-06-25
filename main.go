@@ -15,7 +15,7 @@ import (
 	"github.com/jba/errside/types"
 )
 
-var errcol = flag.Int("e", 40, "error column")
+var errcol = flag.Int("e", 50, "error column")
 
 func main() {
 	flag.Parse()

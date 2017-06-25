@@ -1097,7 +1097,6 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	switch s := stmt.(type) {
 	case *errstmt.AssignIfErrStmt:
 		p.stmt(s.FirstStmt, false)
-		//p.print(indent, indent, indent)
 		for p.out.Column < p.Config.Errcol {
 			p.writeByte(' ', 1)
 		}
@@ -1111,9 +1110,16 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 			p.stmt(sif.Body.List[0], true)
 			p.print(blank, sif.Body.Rbrace, token.RBRACE)
 		} else {
+			fmt.Printf("errcol=%d, tabw=%d\n", p.Config.Errcol, p.Config.Tabwidth)
+			nindent := p.Config.Errcol / p.Config.Tabwidth
+			for i := 0; i < nindent; i++ {
+				p.print(indent)
+			}
 			p.stmt(sif, false)
+			for i := 0; i < nindent; i++ {
+				p.print(unindent)
+			}
 		}
-		//p.print(unindent, unindent, unindent)
 
 	case *ast.BadStmt:
 		p.print("BadStmt")
