@@ -103,11 +103,15 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 			continue
 		}
 		// Yes it does.
-		// Was the previous statement an assignment?
-		if i == 0 {
+		// Was the previous statement (or the statement inside the if) an assignment?
+		prevStmt := ifStmt.Init
+		if prevStmt == nil && i > 0 {
+			prevStmt = bs.List[i-1]
+		}
+		if prevStmt == nil {
 			continue
 		}
-		aStmt, ok := bs.List[i-1].(*ast.AssignStmt)
+		aStmt, ok := prevStmt.(*ast.AssignStmt)
 		if !ok {
 			continue
 		}
@@ -121,12 +125,19 @@ func processBlockStmt(bs *ast.BlockStmt, fset *token.FileSet, info *types.Info) 
 		// Yes it was. We have something like
 		//    ..., err := ..
 		//    if err != nil { ... }
-
-		// The last two elements of newList are the assignment and if statements.
-		// Replace both with a new "statement".
 		n := len(newList)
-		newList[n-2] = errstmt.NewAssignIfErrStmt(aStmt, ifStmt, obj)
-		newList = newList[:n-1]
+		// Make a new pseudo-statement that includes both the assignment
+		// and the test.
+		newStmt := errstmt.NewAssignIfErrStmt(aStmt, ifStmt, obj)
+		if ifStmt.Init != nil {
+			ifStmt.Init = nil
+			newList[n-1] = newStmt
+		} else {
+			// The last two elements of newList are the assignment and if statements.
+			// Replace both with the new "statement".
+			newList[n-2] = newStmt
+			newList = newList[:n-1]
+		}
 	}
 	bs.List = newList
 }
