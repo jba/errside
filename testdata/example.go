@@ -54,13 +54,9 @@ func slurpURL(urlStr string) []byte {
 	if *useCache {
 		log.Fatalf("Invalid use of slurpURL in cached mode for URL %s", urlStr)
 	}
-
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		log.Fatal(err)
-	}
-	if *publicOnly {
-		req.Header.Add("X-User-IP", "0.0.0.0") // hack
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

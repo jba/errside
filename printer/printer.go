@@ -1246,6 +1246,7 @@ type Config struct {
 	Mode     Mode // default: 0
 	Tabwidth int  // default: 8
 	Indent   int  // default: 0 (all code is indented at least by this much)
+	Errcol   int  // column of error sidenotes
 }
 
 // fprint implements Fprint and takes a nodesSizes map for setting up the printer state.

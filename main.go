@@ -15,6 +15,8 @@ import (
 	"github.com/jba/errside/types"
 )
 
+var errcol = flag.Int("e", 40, "error column")
+
 func main() {
 	flag.Parse()
 	ok := true
@@ -58,6 +60,7 @@ func processDir(dir string) error {
 			conf := &printer.Config{
 				Mode:     printer.UseSpaces,
 				Tabwidth: 4,
+				Errcol:   *errcol,
 			}
 			if err := conf.Fprint(os.Stdout, fset, file); err != nil {
 				return err

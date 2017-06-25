@@ -1098,7 +1098,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	case *errstmt.AssignIfErrStmt:
 		p.stmt(s.FirstStmt, false)
 		//p.print(indent, indent, indent)
-		for p.out.Column < 40 {
+		for p.out.Column < p.Config.Errcol {
 			p.writeByte(' ', 1)
 		}
 		p.print(whiteSpace('='), whiteSpace(':'), blank)
